@@ -1,6 +1,6 @@
 package com.github.otfoo.playlivescript
 
-import sbt.PlayExceptions._
+import play.PlayExceptions.AssetCompilationException
 import scala.sys.process._
 import sbt.File
 import scala.util.control.Exception.catching
@@ -12,7 +12,7 @@ object LivescriptCompiler {
 
     try {
       val out = captureOutput(command)
-      val minified = catching(classOf[CompilationException])
+      val minified = catching(classOf[LivescriptException])
         .opt(play.core.jscompile.JavascriptCompiler.minify(out, Some(source.getName)))
       (out, minified, Seq(source))
     } catch {

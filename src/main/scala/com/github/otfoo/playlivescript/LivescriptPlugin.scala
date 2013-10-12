@@ -2,7 +2,9 @@ package com.github.otfoo.playlivescript
 
 import sbt._
 import sbt.Keys._
-import PlayProject._
+import Keys._
+import play.PlayExceptions
+import play.{Project => PlayProject}
 
 object LivescriptPlugin extends Plugin {
 

@@ -19,7 +19,7 @@ resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/release
 libraryDependencies ++= Seq(
 )
 
-addSbtPlugin("play" % "sbt-plugin" % "2.1.1")
+addSbtPlugin("play" % "sbt-plugin" % "2.1.2")
 
 /// Publish to local Play; specify this via sbt -Dplay.path=/your/play/path
 publishTo := Some(playRepository)

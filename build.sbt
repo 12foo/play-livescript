@@ -1,5 +1,7 @@
 /// Project
 
+scalaVersion := "2.10.2"
+
 name := "play-livescript"
 
 sbtPlugin := true

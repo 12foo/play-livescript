@@ -43,7 +43,7 @@ object LivescriptCompiler {
     if (process.exitValue == 0)
       out.toString()
     else
-      throw new LivescriptException(err)
+      throw new LivescriptException(err.toString())
   }
 
 }

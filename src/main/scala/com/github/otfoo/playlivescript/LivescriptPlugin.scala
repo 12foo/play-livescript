@@ -11,15 +11,15 @@ object LivescriptPlugin extends Plugin {
   val lsEntryPoints = SettingKey[PathFinder]("play-livescript-entry-points")
   val lsOptions = SettingKey[Seq[String]]("play-livescript-options")
   val LivescriptWatcher = PlayProject.AssetsCompiler("livescript",
-    (_ ** "*.ls"),
+    _ ** "*.ls",
     lsEntryPoints,
     { (name, min) => name.replace(".ls", ".js") },
-    { LivescriptCompiler.compile _ },
+    { LivescriptCompiler.compile },
     lsOptions
   )
 
   override val settings = Seq(
-    lsEntryPoints <<= (sourceDirectory in Compile).apply(base => ((base / "assets" ** "*.ls") --- base / "assets" ** "_*")),
+    lsEntryPoints <<= (sourceDirectory in Compile).apply(base => (base / "assets" ** "*.ls") --- base / "assets" ** "_*"),
     lsOptions := Seq.empty[String],
     resourceGenerators in Compile <+= LivescriptWatcher
   )

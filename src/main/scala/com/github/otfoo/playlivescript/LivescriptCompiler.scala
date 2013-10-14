@@ -1,49 +1,93 @@
 package com.github.otfoo.playlivescript
 
+import java.io._
 import play.PlayExceptions.AssetCompilationException
-import scala.sys.process._
-import sbt.File
-import scala.util.control.Exception.catching
 
 object LivescriptCompiler {
 
-  def compile(source: File, options: Seq[String]): (String, Option[String], Seq[File]) = {
-    val command = Seq("livescript", "-c", "-p", source.getAbsolutePath)
+  import org.mozilla.javascript._
+  import org.mozilla.javascript.tools.shell._
+
+  import scalax.file._
+
+  private lazy val compiler = {
+
+    (source: File, bare: Boolean) =>
+      {
+        withJsContext { (ctx: Context, scope: Scriptable) =>
+          val wrappedLivescriptCompiler = Context.javaToJS(this, scope)
+          ScriptableObject.putProperty(scope, "LivescriptCompiler", wrappedLivescriptCompiler)
+
+          ctx.evaluateReader(scope, new InputStreamReader(
+            this.getClass.getClassLoader.getResource("livescript.js").openConnection().getInputStream()),
+            "livescript.js",
+            1, null)
+
+          val livescript = scope.get("LiveScript", scope).asInstanceOf[NativeObject]
+          val compilerFunction = livescript.get("compile", scope).asInstanceOf[Function]
+          val livescriptCode = Path(source).string.replace("\r", "")
+          val options = ctx.newObject(scope)
+          options.put("bare", options, bare)
+          compilerFunction.call(ctx, scope, scope, Array(livescriptCode, options))
+        }.toString
+      }
+
+  }
+
+  /**
+   * wrap function call into rhino context attached to current thread
+   * and ensure that it exits right after
+   * @param f their name
+   */
+  def withJsContext(f: (Context, Scriptable) => Any): Any = {
+    val ctx = Context.enter
+    ctx.setOptimizationLevel(-1)
+    val global = new Global
+    global.init(ctx)
+    val scope = ctx.initStandardObjects(global)
 
     try {
-      val out = captureOutput(command)
-      val minified = catching(classOf[LivescriptException])
-        .opt(play.core.jscompile.JavascriptCompiler.minify(out, Some(source.getName)))
-      (out, minified, Seq(source))
+      f(ctx, scope)
     } catch {
-      case ex: LivescriptException => {
-        throw AssetCompilationException(Some(source), ex.message, Some(ex.line), None)
+      case e: Exception => throw e;
+    } finally {
+      Context.exit
+    }
+  }
+
+  private def executeNativeCompiler(in: String, source: File): String = {
+    import scala.sys.process._
+    val qb = Process(in)
+    var out = List[String]()
+    var err = List[String]()
+    val exit = qb ! ProcessLogger((s) => out ::= s, (s) => err ::= s)
+    if (exit != 0) {
+      val eRegex = """.*Parse error on line (\d+):.*""".r
+      val errReverse = err.reverse
+      val r = eRegex.unapplySeq(errReverse.mkString("")).map(_.head.toInt)
+      throw AssetCompilationException(Some(source), errReverse.mkString("\n"), r, None)
+    }
+    out.reverse.mkString("\n")
+  }
+
+  def compile(source: File, options: Seq[String]): String = {
+    try {
+      if (options.size == 2 && options.headOption.filter(_ == "native").isDefined)
+        play.core.jscompile.JavascriptCompiler.executeNativeCompiler(options.last + " " + source.getAbsolutePath, source)
+      else
+        compiler(source, options.contains("bare"))
+    } catch {
+      case e: JavaScriptException => {
+
+        val line = """.*on line ([0-9]+).*""".r
+        val error = e.getValue.asInstanceOf[Scriptable]
+
+        throw ScriptableObject.getProperty(error, "message").toString match {
+          case msg @ line(l) => AssetCompilationException(Some(source), msg, Some(Integer.parseInt(l)), None)
+          case msg => AssetCompilationException(Some(source), msg, None, None)
+        }
+
       }
     }
   }
-
-  private val xMessageLine = """(.*)on line (\d+).*""".r
-
-  private class LivescriptException(error: String) extends RuntimeException {
-    val (message: String, line: Int) = error match {
-      case xMessageLine(m, l) => (m, Some(l.toInt).getOrElse(0))
-      case e => (e, 0)
-    }
-  }
-
-  private def captureOutput(command: ProcessBuilder): String = {
-    var err: String = ""
-    val out = new StringBuilder
-
-    val capturer = ProcessLogger(
-      (output: String) => out.append(output + "\n"),
-      (error: String) => err = error)
-
-    val process = command.run(capturer)
-    if (process.exitValue == 0)
-      out.toString()
-    else
-      throw new LivescriptException(err.toString())
-  }
-
 }

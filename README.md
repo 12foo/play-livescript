@@ -10,7 +10,7 @@ How to Use
 A fake ivy repository is now available on github for easier installation. Add the following to your `plugins.sbt`:
 
 ```scala
-resolvers += Resolver.url("Objectify Play Repository", url("https://github.com/SunPj/playlivescriptivy/raw/master"))(Resolver.ivyStylePatterns)
+resolvers += Resolver.url("Objectify Play Repository", url("https://github.com/SunPj/ivy/raw/master"))(Resolver.ivyStylePatterns)
 
 addSbtPlugin("com.github.otfoo" % "play-livescript" % "0.1")
 ```
